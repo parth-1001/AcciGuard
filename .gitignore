@@ -1,0 +1,29 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.so
+
+# Environment
+.env
+.venv/
+venv/
+
+# OS/system files
+.DS_Store
+Thumbs.db
+
+# Model and data
+*.pth
+*.pt
+*.h5
+*.tflite
+
+# Video and large media
+*.mp4
+*.avi
+output/
+samples/
+frames/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
