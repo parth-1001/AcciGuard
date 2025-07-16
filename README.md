@@ -49,6 +49,17 @@ In road accidents, **every second counts**. The quicker an accident is detected,
 
 https://github.com/user-attachments/assets/e5d80a56-2e1e-455c-99ee-6fa4981a8962
 
+---
+##🔧 Dependencies
+This project requires the following Python libraries:
+
+- torch            # For 3D CNN model training and inference
+- torchvision      # For model utilities
+- opencv-python    # For video and frame processing
+- numpy            # For array and numerical operations
+- Pillow           # For image handling
+- twilio           # For sending SMS alerts
+- tk               # For GUI using Tkinter (already included in Python stdlib)
 
 
 
