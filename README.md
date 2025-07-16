@@ -31,7 +31,6 @@ In road accidents, **every second counts**. The quicker an accident is detected,
 | GUI      | Tkinter |
 | Video Processing | OpenCV |
 | SMS Alerts | Twilio API |
-| Object Detection | YOLOv8 (optional module) |
 | Platform | Google Colab / Local Python |
 
 ---
@@ -46,6 +45,10 @@ In road accidents, **every second counts**. The quicker an accident is detected,
 6. 🖼️ Output video is saved with annotations (`Accident` / `Normal`)
 
 ---
+## Demo
+
+https://github.com/user-attachments/assets/e5d80a56-2e1e-455c-99ee-6fa4981a8962
+
 
 
 
