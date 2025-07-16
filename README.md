@@ -47,7 +47,5 @@ In road accidents, **every second counts**. The quicker an accident is detected,
 
 ---
 
-## 🖥️ GUI Snapshot
 
-> (Include a screenshot here, e.g. `assets/gui.png`)
 
