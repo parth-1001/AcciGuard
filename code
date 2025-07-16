@@ -1,0 +1,238 @@
+from google.colab import drive
+drive.mount('/content/drive')
+
+  import torch
+import torch.nn as nn
+import torchvision.transforms as transforms
+import cv2
+from PIL import Image
+from google.colab import files
+from IPython.display import HTML
+from base64 import b64encode
+import os
+
+
+class C3D(nn.Module):
+    def __init__(self):
+        super(C3D, self).__init__()
+        self.features = nn.Sequential(
+            nn.Conv3d(3, 64, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool3d(kernel_size=2, stride=2),
+
+            nn.Conv3d(64, 128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool3d(kernel_size=2, stride=2),
+
+            nn.Conv3d(128, 256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool3d(kernel_size=2, stride=2),
+        )
+        self.classifier = nn.Sequential(
+            nn.Linear(256 * 4 * 14 * 14, 512),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(512, 2)
+        )
+
+    def forward(self, x):  # x: [B, 3, 32, 112, 112]
+        x = self.features(x)
+        x = x.view(x.size(0), -1)
+        x = self.classifier(x)
+        return x
+
+
+
+
+  device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+model = C3D().to(device)
+model_path = "/content/drive/MyDrive/accident_detection/dataset/c3d_accident_model.pt"
+model.load_state_dict(torch.load(model_path, map_location=device))
+model.eval()
+
+
+
+  def process_and_annotate(uploaded_path, output_path="/content/annotated_result.mp4", clip_len=32):
+    cap = cv2.VideoCapture(uploaded_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frames = []
+    success, frame = cap.read()
+    while success:
+        resized = cv2.resize(frame, (112, 112))
+        frames.append(resized)
+        success, frame = cap.read()
+    cap.release()
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_path, fourcc, fps, (112, 112))
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    total_written = 0
+    accident_detected = False
+
+    for i in range(0, len(frames) - clip_len + 1, clip_len):
+        clip_frames = frames[i:i+clip_len]
+        tensor_clip = []
+
+        for f in clip_frames:
+            img = Image.fromarray(cv2.cvtColor(f, cv2.COLOR_BGR2RGB))
+            tensor = transforms.ToTensor()(img)
+            tensor_clip.append(tensor)
+
+        clip_tensor = torch.stack(tensor_clip).permute(1, 0, 2, 3).unsqueeze(0).to(device)
+
+        with torch.no_grad():
+            output = model(clip_tensor)
+            pred = output.argmax(dim=1).item()
+            label = "🚨 Accident" if pred == 1 else "✅ Normal"
+            color = (0, 0, 255) if pred == 1 else (0, 255, 0)
+
+            if pred == 1:
+                accident_detected = True
+
+        for f in clip_frames:
+            frame_copy = f.copy()
+            # Show "Normal" until first accident detected
+            display_label = "🚨 Accident" if accident_detected else "✅ Normal"
+            display_color = (0, 0, 255) if accident_detected else (0, 255, 0)
+            cv2.putText(frame_copy, display_label, (5, 20), font, 0.5, display_color, 2)
+            out.write(frame_copy)
+            total_written += 1
+
+    out.release()
+    print(f"🎥 Annotated video saved: {output_path}")
+    print(f"🧮 Total frames written: {total_written}")
+
+
+!pip install twilio
+
+from google.colab import files
+uploaded = files.upload()
+uploaded_video_path = list(uploaded.keys())[0]
+
+
+
+
+
+account_sid = "         "
+auth_token = "           "
+from_number = "+      "    # e.g., +12025551234
+to_number = "+      "       # e.g., +91xxxxxxxxxx
+
+
+  
+from twilio.rest import Client
+from datetime import datetime
+
+
+
+def send_sms_alert(message_text):
+    client = Client(account_sid, auth_token)
+    message = client.messages.create(
+        body=message_text,
+        from_=from_number,
+        to=to_number
+    )
+    print("✅ SMS sent:", message.sid)
+
+
+
+  
+import cv2
+import torch
+from torchvision import transforms
+from PIL import Image
+from base64 import b64encode
+from IPython.display import HTML, display
+import subprocess
+
+def process_annotate_and_show(uploaded_path, output_path="/content/annotated_result.mp4", clip_len=32):
+    raw_frames = []
+    resized_frames = []
+
+    cap = cv2.VideoCapture(uploaded_path)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 15
+    success, frame = cap.read()
+    while success:
+        raw_frames.append(frame.copy())
+        resized = cv2.resize(frame, (112, 112))
+        resized_frames.append(resized)
+        success, frame = cap.read()
+    cap.release()
+
+    if not raw_frames:
+        print("❌ No frames found.")
+        return
+
+    height, width = raw_frames[0].shape[:2]
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    accident_detected = False
+    total_written = 0
+
+    for i in range(0, len(resized_frames) - clip_len + 1, clip_len):
+        resized_clip = resized_frames[i:i+clip_len]
+        original_clip = raw_frames[i:i+clip_len]
+
+        tensor_clip = [
+            transforms.ToTensor()(Image.fromarray(cv2.cvtColor(f, cv2.COLOR_BGR2RGB)))
+            for f in resized_clip
+        ]
+        clip_tensor = torch.stack(tensor_clip).permute(1, 0, 2, 3).unsqueeze(0).to(device)
+
+        with torch.no_grad():
+            output = model(clip_tensor)
+            pred = output.argmax(dim=1).item()
+            if pred == 1 and not accident_detected:
+                accident_detected = True
+                current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                message = f"🚨 Accident detected!\nLocation: CCTV NO.5 M.G. ROAD GWALIOR\nTime: {current_time}"
+                send_sms_alert(message)
+
+        for f in original_clip:
+            label = "🚨 Accident" if accident_detected else "✅ Normal"
+            color = (0, 0, 255) if accident_detected else (0, 255, 0)
+            cv2.putText(f, label, (30, 70), font, 4, color, 6)
+            out.write(f)
+            total_written += 1
+
+    out.release()
+    print(f"\n✅ Annotated video saved: {output_path}")
+    print(f"🧮 Total frames written: {total_written}")
+
+    print("🔄 Re-encoding...")
+    subprocess.call([
+        "ffmpeg", "-y", "-i", output_path,
+        "-vcodec", "libx264", "-crf", "23", "/content/final_output.mp4"
+    ])
+    print("✅ Re-encoded. Displaying video...")
+
+    mp4 = open("/content/final_output.mp4", 'rb').read()
+    data_url = "data:video/mp4;base64," + b64encode(mp4).decode()
+    display(HTML(f"""
+    <video width=600 controls loop autoplay>
+        <source src="{data_url}" type="video/mp4">
+    </video>
+    """))
+process_annotate_and_show(uploaded_video_path)
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
